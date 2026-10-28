@@ -1,0 +1,64 @@
+name: Release
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing signed tag to retry after repairing the workflow
+        required: true
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: windows-latest
+    env:
+      RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: refs/tags/${{ inputs.tag || github.ref_name }}
+      - name: Validate release source
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          # Checkout can dereference an annotated tag during push-event SHA validation.
+          git fetch --force origin "refs/tags/$RELEASE_TAG:refs/tags/$RELEASE_TAG"
+          test "$(git cat-file -t "$RELEASE_TAG")" = tag
+          gh api "repos/$GITHUB_REPOSITORY/git/tags/$(git rev-parse "$RELEASE_TAG")" --jq '.verification.verified' | grep -qx true
+          test "$(git rev-parse "$RELEASE_TAG^{}")" = "$(git rev-parse HEAD)"
+          git merge-base --is-ancestor HEAD origin/main
+          subject=$(git log -1 --format=%s)
+          [[ "$subject" == "chore(release): $RELEASE_TAG" || "$subject" == "chore(release): $RELEASE_TAG (#"*")" ]]
+      - name: Install pinned toolchain
+        run: rustup show active-toolchain
+      - name: Test
+        run: cargo test -j 2 --locked
+      - name: Package
+        shell: pwsh
+        run: |
+          cargo build --release --locked
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          New-Item -ItemType Directory -Force dist | Out-Null
+          Compress-Archive -Path target/release/lineup.exe, LICENSE, README.md, README_zh-Hans.md -DestinationPath "dist/lineup-${env:RELEASE_TAG}-x86_64-pc-windows-msvc.zip"
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd dist
+          sha256sum * > SHA256SUMS
+          cd ..
+          python - "$RELEASE_TAG" <<'PY'
+          import pathlib, re, sys
+          version = sys.argv[1].removeprefix('v')
+          text = pathlib.Path('CHANGELOG.md').read_text()
+          sections = re.split(r'^## ', text, flags=re.M)
+          notes = next(s for s in sections[1:] if s.splitlines()[0].startswith(f'[{version}]'))
+          pathlib.Path('release-notes.md').write_text('## ' + notes)
+          PY
+          gh release create "$RELEASE_TAG" dist/* --verify-tag --title "$RELEASE_TAG" --notes-file release-notes.md

@@ -1,0 +1,97 @@
+{
+  "$defs": {
+    "DesiredEntry": {
+      "additionalProperties": false,
+      "properties": {
+        "arguments": {
+          "default": "",
+          "pattern": "^[^\\u0000]*$",
+          "type": "string"
+        },
+        "delaySeconds": {
+          "default": null,
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "elevated": {
+          "default": false,
+          "type": "boolean"
+        },
+        "enabled": {
+          "default": true,
+          "type": "boolean"
+        },
+        "name": {
+          "maxLength": 200,
+          "minLength": 1,
+          "pattern": "^(?!\\.{1,2}$)(?!.*[ .]$)[^\\\\/:*?\"<>|\\u0000-\\u001f]+$",
+          "type": "string"
+        },
+        "path": {
+          "pattern": "^(?:[A-Za-z]:[\\\\/]|\\\\\\\\[^\\\\/]+[\\\\/][^\\\\/]+|%[^%]+%[\\\\/])[^\"\\u0000]*$",
+          "type": "string"
+        },
+        "priority": {
+          "default": null,
+          "format": "uint32",
+          "maximum": 10,
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "scope": {
+          "$ref": "#/$defs/Scope",
+          "default": "user"
+        },
+        "workingDirectory": {
+          "default": null,
+          "pattern": "^(?:[A-Za-z]:[\\\\/]|\\\\\\\\[^\\\\/]+[\\\\/][^\\\\/]+|%[^%]+%[\\\\/])[^\"\\u0000]*$",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "name",
+        "path"
+      ],
+      "type": "object"
+    },
+    "Scope": {
+      "enum": [
+        "user",
+        "machine"
+      ],
+      "type": "string"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "entries": {
+      "items": {
+        "$ref": "#/$defs/DesiredEntry"
+      },
+      "type": "array"
+    },
+    "schemaVersion": {
+      "format": "uint32",
+      "maximum": 1,
+      "minimum": 1,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "entries"
+  ],
+  "title": "Manifest",
+  "type": "object"
+}

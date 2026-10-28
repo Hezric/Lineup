@@ -1,0 +1,58 @@
+name: Release reminder
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '23 8 * * 1'
+  workflow_dispatch:
+    inputs:
+      scenario:
+        description: 'Exercise a threshold with synthetic counts; normal uses repository history'
+        type: choice
+        default: normal
+        options: [normal, security, breaking, count, age, below]
+permissions:
+  contents: read
+  issues: write
+concurrency:
+  group: release-reminder
+  cancel-in-progress: false
+jobs:
+  remind:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/github-script@v7
+        env:
+          SCENARIO: ${{ inputs.scenario || 'normal' }}
+        with:
+          script: |
+            const {execFileSync} = require('node:child_process');
+            const git = (...args) => execFileSync('git', args, {encoding:'utf8'}).trim();
+            const tags = git('tag','--merged','HEAD','--sort=-version:refname','--list','v[0-9]*').split('\n').filter(Boolean);
+            const tag = tags[0];
+            const messages = git('log','--format=%B%x00',tag ? `${tag}..HEAD` : 'HEAD').split('\0').filter(x=>x.trim());
+            let count = messages.filter(x=> /^(feat|fix|perf)\(/.test(x.trim()) || /^[a-z]+\([^)]+\)!:|^BREAKING CHANGE:/m.test(x.trim())).length;
+            let urgent = messages.some(x=> /^(?:fix\(security\):|[a-z]+\([^)]+\)!:)|^BREAKING CHANGE:/m.test(x.trim()));
+            const since = tag ? git('log','-1','--format=%ct',`${tag}^{}`) : git('log','--reverse','--format=%ct').split('\n')[0];
+            let days = Math.floor((Date.now()/1000 - Number(since))/86400);
+            const scenario = process.env.SCENARIO;
+            if (scenario !== 'normal') {
+              count = scenario === 'count' ? 5 : scenario === 'below' ? 0 : 1;
+              days = scenario === 'age' ? 30 : 0;
+              urgent = ['security','breaking'].includes(scenario);
+            }
+            const due = urgent || count >= 5 || (count >= 1 && days >= 30);
+            const marker = '<!-- public-project:release-due -->';
+            const issues = await github.paginate(github.rest.issues.listForRepo,{...context.repo,state:'all',creator:'github-actions[bot]',per_page:100});
+            const issue = issues.find(x=>x.body?.includes(marker) && !x.pull_request);
+            const body = `${marker}\n${count} unreleased user-visible changes; ${days} days since release or initial commit; urgent: ${urgent}.\n\nRelease only after the user authorizes it.${scenario === 'normal' ? '' : `\n\nThreshold exercise: ${scenario}.`}`;
+            if (due) {
+              if (issue) await github.rest.issues.update({...context.repo,issue_number:issue.number,state:'open',title:'Release due',body});
+              else await github.rest.issues.create({...context.repo,title:'Release due',body});
+            } else if (issue?.state === 'open') {
+              await github.rest.issues.update({...context.repo,issue_number:issue.number,state:'closed',body});
+            }
+            core.info(JSON.stringify({scenario,count,days,urgent,due,existingIssue:issue?.number}));

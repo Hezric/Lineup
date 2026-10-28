@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "entries": [
+    { "name": "LineupTest-preflight-user", "path": "%SystemRoot%\\System32\\notepad.exe" },
+    { "name": "LineupTest-preflight-machine", "path": "%SystemRoot%\\System32\\notepad.exe", "scope": "machine" },
+    { "name": "LineupTest-preflight-elevated", "path": "%SystemRoot%\\System32\\notepad.exe", "elevated": true }
+  ]
+}
