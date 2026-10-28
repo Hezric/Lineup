@@ -1,4 +1,4 @@
-accepted = ["MIT", "MIT-0", "Unicode-3.0"]
+accepted = ["Apache-2.0", "MIT", "MIT-0", "Unicode-3.0", "Zlib"]
 ignore-dev-dependencies = true
 ignore-build-dependencies = true
 targets = ["x86_64-pc-windows-msvc"]
