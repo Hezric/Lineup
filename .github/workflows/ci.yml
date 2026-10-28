@@ -39,6 +39,11 @@ jobs:
           cargo test -j 2 --locked
       - name: Build
         run: cargo build --release --locked
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-about@0.9.3
+      - name: Verify third-party notices
+        run: cargo about generate --locked --fail about.hbs --output-file target/THIRD-PARTY-NOTICES.txt
       - name: Current-user integration
         env:
           LINEUP_REAL_TESTS: '1'
