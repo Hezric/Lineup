@@ -65,7 +65,7 @@ pub fn parse_manifest(raw: &str) -> Result<Manifest, Vec<Problem>> {
     let mut problems: Vec<_> = validator
         .iter_errors(&value)
         .map(|error| Problem {
-            path: error.instance_path.to_string(),
+            path: error.instance_path().to_string(),
             reason: error.to_string(),
         })
         .collect();
