@@ -38,6 +38,7 @@ jobs:
       - name: Install pinned toolchain
         run: rustup show active-toolchain
       - name: Test
+        shell: pwsh
         run: cargo test -j 2 --locked
       - uses: taiki-e/install-action@v2
         with:
