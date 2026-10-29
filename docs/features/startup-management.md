@@ -45,7 +45,22 @@ The [manifest schema](../../manifest.schema.json) is derived from Rust types,
 published for editors, and compared against generated output by a test. Runtime
 validation reports every detected field problem and rejects duplicate names
 within a scope before changes.
+`plan` and `apply` accept TOML or JSON manifests from a file or stdin (`--manifest -`),
+or one entry via CLI options. JSON is detected by its first non-whitespace `{`;
+all other input is TOML. Syntax errors in TOML include line and column, and field
+errors use JSON Pointer paths. All input forms share defaults and validation.
+For example:
 
+```toml
+schemaVersion = 1
+[[entries]]
+name = 'example'
+path = '%SystemRoot%\System32\notepad.exe' # Windows path
+```
+
+Use `lineup plan --name example --path '%SystemRoot%\System32\notepad.exe'`
+for a single entry, or `Get-Content -Raw startup.toml | lineup plan --manifest -`
+to pipe a manifest.
 The library plans and applies through `Backend`. Only named entries in a
 manifest are managed. Plain entries use Run values; delay, priority, elevation,
 or working directory select a logon task. Run cannot store a working directory.

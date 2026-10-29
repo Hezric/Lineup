@@ -5,7 +5,7 @@
   <p>让 Windows 的开机时光井然有序，也让一天从容开始。</p>
 </div>
 
-Lineup 为脚本和编程代理打理 Windows 启动程序。用 JSON 写下期望的状态，先查看计划，再从容应用。每次调用都会返回 JSON。
+Lineup 为脚本和编程代理打理 Windows 启动程序。用 TOML 或 JSON 写下期望的状态，先查看计划，再从容应用。每次调用都会返回 JSON。
 
 ## 功能
 
@@ -26,22 +26,23 @@ scoop install zephyr/lineup
 
 ## 快速开始
 
-将清单保存为 `startup.json`：
+将清单保存为 `startup.toml`：
 
-```json
-{
-  "schemaVersion": 1,
-  "entries": [
-    { "name": "example", "path": "%SystemRoot%\\System32\\notepad.exe" }
-  ]
-}
+```toml
+schemaVersion = 1
+
+[[entries]]
+name = 'example'
+path = '%SystemRoot%\System32\notepad.exe' # Windows 路径
 ```
 
 ```powershell
 lineup list
 lineup check
-lineup plan --manifest startup.json
-lineup apply --manifest startup.json
+lineup plan --manifest startup.toml
+lineup apply --manifest startup.toml
+lineup plan --name example --path '%SystemRoot%\System32\notepad.exe' --delay 30
+Get-Content -Raw startup.toml | lineup plan --manifest -
 lineup remove example
 lineup run example
 lineup schema
