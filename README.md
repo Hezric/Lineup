@@ -15,10 +15,10 @@ Lineup helps scripts and coding agents tend the programs Windows starts. Describ
 
 ## Install
 
-On Windows 11 x64, install from the [scoop-zephyr bucket](https://github.com/Hezric/scoop-zephyr):
+On Windows 11 x64, install from the [ScoopZephyr bucket](https://github.com/Hezric/ScoopZephyr):
 
 ```powershell
-scoop bucket add zephyr https://github.com/Hezric/scoop-zephyr
+scoop bucket add zephyr https://github.com/Hezric/ScoopZephyr
 scoop install zephyr/lineup
 ```
 
