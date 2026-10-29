@@ -1,6 +1,6 @@
 # Lineup
 
-Lineup manages the programs Windows starts at logon. It is built for coding agents and scripts: describe the startup entries you want in a JSON manifest, preview the changes with `lineup plan`, apply them with `lineup apply`, and read every result as JSON.
+Lineup manages the programs Windows starts at logon. It is built for coding agents and scripts: describe the startup entries you want in a TOML or JSON manifest, preview the changes with `lineup plan`, apply them with `lineup apply`, and read every result as JSON.
 
 ## Installation
 
@@ -20,8 +20,10 @@ registers itself for startup or stays resident.
 ```powershell
 lineup list
 lineup check
-lineup plan --manifest startup.json
-lineup apply --manifest startup.json
+lineup plan --manifest startup.toml
+lineup apply --manifest startup.toml
+lineup plan --name example --path '%SystemRoot%\System32\notepad.exe' --delay 30
+Get-Content -Raw startup.toml | lineup plan --manifest -
 lineup remove example
 lineup run example
 lineup schema
@@ -65,23 +67,25 @@ recreation to acquire it. An unchanged apply does not rewrite existing ACLs.
 
 ## Manifest and changes
 
-Save this as `startup.json`:
+Save this as `startup.toml`:
 
-```json
-{
-  "schemaVersion": 1,
-  "entries": [
-    { "name": "example", "path": "%SystemRoot%\\System32\\notepad.exe" },
-    {
-      "name": "delayed-example",
-      "path": "%SystemRoot%\\System32\\notepad.exe",
-      "arguments": "",
-      "delaySeconds": 30,
-      "priority": 7
-    }
-  ]
-}
+```toml
+schemaVersion = 1
+
+[[entries]]
+name = 'example'
+path = '%SystemRoot%\System32\notepad.exe' # Windows path
+delaySeconds = 30
+priority = 7
 ```
+
+JSON is also accepted. Content beginning with `{` after whitespace is JSON;
+other content is TOML. TOML syntax errors include line and column. `--manifest -`
+reads stdin. Alternatively, `plan` and `apply` accept `--name`, `--path`,
+`--arguments`, `--working-directory`, `--scope`, `--elevated`, `--delay`,
+`--priority`, and `--enabled` for one entry, mutually exclusive with `--manifest`.
+Boolean options accept `true` or `false`; a bare flag means `true`.
+The same defaults and validation apply to all three input forms.
 
 The [JSON Schema](../manifest.schema.json) is generated from the Rust types and
 checked by tests. Regenerate it with `lineup schema`. Unknown fields, invalid
@@ -151,7 +155,7 @@ plan and performs no actions. Unchanged privileged entries do not require
 elevation. `remove` uses the same preflight.
 
 Elevate the whole command yourself, using the same Windows account (for example
-`gsudo lineup apply --manifest startup.json`). Lineup never requests UAC itself.
+`gsudo lineup apply --manifest startup.toml`). Lineup never requests UAC itself.
 Successfully registered elevated user tasks subsequently start at that user's
 logon without another prompt. Machine tasks use the built-in Users group, or
 Administrators for elevated tasks, with a logon trigger for eligible users.

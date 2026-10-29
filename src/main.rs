@@ -6,8 +6,10 @@ Commands:\n\
   list                       Read both scopes: Run (including 32-bit), Startup\n\
                              folders, and logon/boot tasks. See inventory.warnings.\n\
   check                      Report missing executable targets and duplicate paths.\n\
-  plan --manifest <file>      Validate JSON and preview exact managed-entry actions.\n\
-  apply --manifest <file>     Validate, preflight, and apply the same actions.\n\
+  plan --manifest <file|->    Validate TOML or JSON and preview actions.\n\
+  apply --manifest <file|->   Validate, preflight, and apply actions.\n\
+  plan/apply --name <name> --path <path> [entry options]\n\
+                             Manage one entry instead of a manifest.\n\
   remove <name|id>           Remove every same-name source within that scope.\n\
   run <name|id>              Launch now with arguments and working directory;\n\
                              report pid. Does not wait or forward child output.\n\
@@ -16,6 +18,8 @@ Commands:\n\
   --version, -V              Version.\n\
 Manifest: {\"schemaVersion\":1,\"entries\":[{\"name\":\"example\",\n\
 \"path\":\"C:\\\\Windows\\\\notepad.exe\"}]}\n\
+Single-entry options: --arguments, --working-directory, --scope, --elevated,\n\
+--delay, --priority, --enabled. Booleans accept true or false; a bare flag means true.\n\
 Entry fields: name (unique within scope, 1..200 characters, no path separators,\n\
 reserved Windows filename characters, control characters, trailing dot/space);\n\
 path (absolute Windows executable path; %VARIABLE% expansion supported);\n\
@@ -61,7 +65,7 @@ fn execute(args: &[String]) -> (Value, i32) {
     };
     let valid = match command {
         "list" | "check" => args.len() == 1,
-        "plan" | "apply" => args.len() == 3 && args[1] == "--manifest",
+        "plan" | "apply" => args.len() > 1,
         "remove" | "run" => args.len() == 2,
         _ => false,
     };
@@ -72,9 +76,63 @@ fn execute(args: &[String]) -> (Value, i32) {
         );
     }
     let manifest = if ["plan", "apply"].contains(&command) {
-        let raw = match std::fs::read_to_string(&args[2]) {
-            Ok(raw) => raw,
-            Err(e) => return failure(e, 2),
+        let raw = if args[1] == "--manifest" && args.len() == 3 {
+            if args[2] == "-" {
+                use std::io::Read;
+                let mut raw = String::new();
+                if let Err(e) = std::io::stdin().read_to_string(&mut raw) {
+                    return failure(e, 2);
+                }
+                raw
+            } else {
+                match std::fs::read_to_string(&args[2]) {
+                    Ok(raw) => raw,
+                    Err(e) => return failure(e, 2),
+                }
+            }
+        } else {
+            let mut entry = serde_json::Map::new();
+            let mut i = 1;
+            while i < args.len() {
+                let (key, kind) = match args[i].as_str() {
+                    "--name" => ("name", 0),
+                    "--path" => ("path", 0),
+                    "--arguments" => ("arguments", 0),
+                    "--working-directory" => ("workingDirectory", 0),
+                    "--scope" => ("scope", 0),
+                    "--elevated" => ("elevated", 1),
+                    "--delay" => ("delaySeconds", 2),
+                    "--priority" => ("priority", 2),
+                    "--enabled" => ("enabled", 1),
+                    _ => return failure("invalid command or options", 2),
+                };
+                if entry.contains_key(key) {
+                    return failure("duplicate option", 2);
+                }
+                i += 1;
+                let value = if kind == 1 && (i == args.len() || args[i].starts_with("--")) {
+                    json!(true)
+                } else {
+                    if i == args.len() {
+                        return failure("missing option value", 2);
+                    }
+                    let s = &args[i];
+                    i += 1;
+                    match kind {
+                        1 => s
+                            .parse::<bool>()
+                            .map(|v| json!(v))
+                            .unwrap_or_else(|_| json!(s)),
+                        2 => s
+                            .parse::<i64>()
+                            .map(|v| json!(v))
+                            .unwrap_or_else(|_| json!(s)),
+                        _ => json!(s),
+                    }
+                };
+                entry.insert(key.into(), value);
+            }
+            json!({"schemaVersion": 1, "entries": [entry]}).to_string()
         };
         match lineup::management::parse_manifest(&raw) {
             Ok(manifest) => Some(manifest),

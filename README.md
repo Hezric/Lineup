@@ -5,7 +5,7 @@
   <p>Give Windows startup a little order, and your day a quieter beginning.</p>
 </div>
 
-Lineup helps scripts and coding agents tend the programs Windows starts. Describe the entries you want in JSON, see the plan, and apply it when you are ready. Every invocation returns JSON.
+Lineup helps scripts and coding agents tend the programs Windows starts. Describe the entries you want in TOML or JSON, see the plan, and apply it when you are ready. Every invocation returns JSON.
 
 ## Features
 
@@ -26,22 +26,23 @@ Alternatively, download the Windows x64 zip from [GitHub Releases](https://githu
 
 ## Quick start
 
-Save a manifest as `startup.json`:
+Save a manifest as `startup.toml`:
 
-```json
-{
-  "schemaVersion": 1,
-  "entries": [
-    { "name": "example", "path": "%SystemRoot%\\System32\\notepad.exe" }
-  ]
-}
+```toml
+schemaVersion = 1
+
+[[entries]]
+name = 'example'
+path = '%SystemRoot%\System32\notepad.exe' # Windows path
 ```
 
 ```powershell
 lineup list
 lineup check
-lineup plan --manifest startup.json
-lineup apply --manifest startup.json
+lineup plan --manifest startup.toml
+lineup apply --manifest startup.toml
+lineup plan --name example --path '%SystemRoot%\System32\notepad.exe' --delay 30
+Get-Content -Raw startup.toml | lineup plan --manifest -
 lineup remove example
 lineup run example
 lineup schema

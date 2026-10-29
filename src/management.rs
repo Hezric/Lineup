@@ -55,7 +55,14 @@ pub fn schema() -> serde_json::Value {
     serde_json::to_value(schemars::schema_for!(Manifest)).expect("schema serializes")
 }
 pub fn parse_manifest(raw: &str) -> Result<Manifest, Vec<Problem>> {
-    let value: serde_json::Value = serde_json::from_str(raw).map_err(|e| {
+    let value: serde_json::Value = if raw.trim_start().starts_with('{') {
+        serde_json::from_str(raw).map_err(|e| e.to_string())
+    } else {
+        toml::from_str::<toml::Value>(raw)
+            .map_err(|e| e.to_string())
+            .and_then(|v| serde_json::to_value(v).map_err(|e| e.to_string()))
+    }
+    .map_err(|e| {
         vec![Problem {
             path: String::new(),
             reason: e.to_string(),
