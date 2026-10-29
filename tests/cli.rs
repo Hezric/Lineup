@@ -165,3 +165,57 @@ fn published_schema_cannot_drift_from_rust_types() {
         "regenerate with lineup schema"
     );
 }
+
+#[test]
+fn aliases_schema_and_command_arity_keep_the_json_contract() {
+    for args in [vec!["-h"], vec!["list", "-h"], vec!["-V"]] {
+        let (code, value) = input(&args, "");
+        assert_eq!(code, 0, "{args:?}: {value}");
+        assert_eq!(value["ok"], true);
+        assert!(value.get("help").is_some() || value.get("version").is_some());
+    }
+    let (code, value) = input(&["schema"], "");
+    assert_eq!(code, 0);
+    assert_eq!(value, lineup::management::schema());
+    for args in [
+        vec!["plan"],
+        vec!["apply"],
+        vec!["remove"],
+        vec!["run", "a", "b"],
+        vec!["schema", "extra"],
+    ] {
+        let (code, value) = input(&args, "");
+        assert_eq!(code, 2, "{args:?}: {value}");
+        assert_eq!(value["ok"], false);
+        assert!(value["error"].as_str().unwrap().contains("invalid"));
+    }
+}
+
+#[test]
+fn single_entry_parser_rejects_duplicate_missing_and_unknown_options() {
+    for (args, error) in [
+        (
+            vec!["plan", "--name", "x", "--name", "y"],
+            "duplicate option",
+        ),
+        (vec!["plan", "--name"], "missing option value"),
+        (vec!["plan", "--unknown", "x"], "invalid command or options"),
+    ] {
+        let (code, value) = input(&args, "");
+        assert_eq!(code, 2);
+        assert_eq!(value["error"], error);
+    }
+    // Invalid names stop before native dispatch while exercising boolean parsing.
+    for flags in [
+        vec!["--elevated", "--enabled"],
+        vec!["--elevated", "false", "--enabled", "true"],
+    ] {
+        let mut args = vec!["plan", "--name", "bad/name", "--path", "C:\\app.exe"];
+        args.extend(flags);
+        let (code, value) = input(&args, "");
+        assert_eq!(code, 2);
+        let problems = value["problems"].as_array().unwrap();
+        assert_eq!(problems.len(), 1);
+        assert_eq!(problems[0]["path"], "/entries/0/name");
+    }
+}

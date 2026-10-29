@@ -141,11 +141,17 @@ instances, deletes only recorded test entries/folders, and restores a
 pre-existing machine-folder ACL.
 
 The [Windows workflow](../../.github/workflows/ci.yml) runs fmt, clippy,
-unit tests, and both opt-in suites on push and pull request using the pinned
+unit tests, the [read-only shell examples](../../tests/shell-examples.ps1),
+and both opt-in suites on push and pull request using the pinned
 toolchain. Real logon delivery is delegated to Windows and is not tested by
 signing out or rebooting. The earlier supervised readback/on-demand verification
 passed for all four kinds; new ACL behavior requires the elevated suite or CI
 run, rather than being inferred from those earlier results.
+
+The [companion Skill](../../skills/lineup/SKILL.md) provides an agent workflow
+and shell pitfalls, with command details owned by the usage guide and CLI help.
+It is discoverable by the skills CLI and included in release archives. The
+README's installation prompt respects the user's existing Skill management.
 
 ## StartupApproved evidence
 

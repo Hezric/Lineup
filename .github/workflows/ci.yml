@@ -38,7 +38,9 @@ jobs:
           #requires -Version 7.0
           cargo test -j 2 --locked
       - name: Build
-        run: cargo build --release --locked
+        run: cargo build --release --locked -j 2
+      - name: Read-only examples in documented Windows shells
+        run: ./tests/shell-examples.ps1
       - uses: taiki-e/install-action@v2
         with:
           tool: cargo-about@0.9.3

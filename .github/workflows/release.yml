@@ -47,12 +47,15 @@ jobs:
         shell: pwsh
         run: |
           #requires -Version 7.0
-          cargo build --release --locked
+          cargo build --release --locked -j 2
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cargo about generate --locked --fail about.hbs --output-file target/THIRD-PARTY-NOTICES.txt
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           New-Item -ItemType Directory -Force dist | Out-Null
-          Compress-Archive -Path target/release/lineup.exe, LICENSE, README.md, README_zh-Hans.md, target/THIRD-PARTY-NOTICES.txt -DestinationPath "dist/lineup-${env:RELEASE_TAG}-x86_64-pc-windows-msvc.zip"
+          New-Item -ItemType Directory -Force target/package | Out-Null
+          Copy-Item -Recurse skills target/package/skills
+          Copy-Item target/release/lineup.exe, LICENSE, README.md, README_zh-Hans.md, target/THIRD-PARTY-NOTICES.txt target/package
+          Compress-Archive -Path target/package/* -DestinationPath "dist/lineup-${env:RELEASE_TAG}-x86_64-pc-windows-msvc.zip"
       - name: Create release
         env:
           GH_TOKEN: ${{ github.token }}

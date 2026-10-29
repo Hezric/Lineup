@@ -24,6 +24,22 @@ scoop install zephyr/lineup
 
 Alternatively, download the Windows x64 zip from [GitHub Releases](https://github.com/Hezric/Lineup/releases), extract it, and put `lineup.exe` on your PATH. To build from source, install Rust with rustup and the MSVC build tools, then run `cargo build --release --locked`; the executable is in `target/release/`. Lineup does not register itself for startup or stay resident.
 
+## Use with an agent
+
+Give your coding agent a quiet place to start:
+
+```text
+Install Lineup from https://github.com/Hezric/Lineup on this Windows machine:
+scoop bucket add zephyr https://github.com/Hezric/ScoopZephyr
+scoop install zephyr/lineup
+Verify with lineup --version.
+
+Install its companion skill through my existing skill management. If I have
+none, ask me first and recommend npx skills add Hezric/Lineup -g (Vercel's
+skills CLI, https://github.com/vercel-labs/skills; Node.js 22.20+). Verify the
+installed SKILL.md, then use the skill to inspect startup without changing it.
+```
+
 ## Quick start
 
 Save a manifest as `startup.toml`:

@@ -4,12 +4,19 @@ use lineup::{Backend, Entry, Inventory, Scope, Source, management::*};
 struct Memory {
     entries: Vec<Entry>,
     fail: Option<String>,
+    fail_delete: Option<String>,
+    inventory_error: bool,
+    elevation_error: bool,
+    start_error: bool,
     writes: usize,
     admin: bool,
     warnings: Vec<lineup::InventoryWarning>,
 }
 impl Backend for Memory {
     fn inventory(&self) -> Result<Inventory, String> {
+        if self.inventory_error {
+            return Err("inventory unavailable".into());
+        }
         Ok(Inventory {
             entries: self.entries.clone(),
             warnings: self.warnings.clone(),
@@ -19,6 +26,9 @@ impl Backend for Memory {
         true
     }
     fn is_elevated(&self) -> Result<bool, String> {
+        if self.elevation_error {
+            return Err("token unavailable".into());
+        }
         Ok(self.admin)
     }
     fn write(&mut self, entry: &Entry) -> Result<(), String> {
@@ -36,6 +46,9 @@ impl Backend for Memory {
     }
     fn delete(&mut self, entry: &Entry) -> Result<(), String> {
         self.writes += 1;
+        if self.fail_delete.as_ref() == Some(&entry.name) {
+            return Err("injected delete failure".into());
+        }
         self.entries.retain(|e| {
             !(e.scope == entry.scope
                 && e.source == entry.source
@@ -44,6 +57,9 @@ impl Backend for Memory {
         Ok(())
     }
     fn start(&self, entry: &Entry) -> Result<u32, String> {
+        if self.start_error {
+            return Err("launch failed".into());
+        }
         assert_eq!(entry.arguments, "--test");
         Ok(1234)
     }
@@ -435,4 +451,120 @@ fn single_entry_operations_preserve_warnings_and_respect_scope_selection() {
     assert_eq!(report.status, "success");
     assert_eq!(report.plan.warnings, system.warnings);
     assert!(system.entries.is_empty());
+}
+
+#[test]
+fn failed_cleanup_keeps_the_new_source_and_continues_independent_entries() {
+    let old = Entry::new("example", Scope::User, Source::Startup, "example.lnk");
+    let mut system = Memory {
+        entries: vec![old.clone()],
+        fail_delete: Some("example".into()),
+        ..Default::default()
+    };
+    let report = apply(
+        &mut system,
+        &manifest(vec![entry("example"), entry("other")]),
+    )
+    .unwrap();
+    assert_eq!(report.status, "partial_failure");
+    assert_eq!(report.results[0].status, "failed");
+    assert_eq!(
+        report.results[0].error.as_deref(),
+        Some("injected delete failure")
+    );
+    assert_eq!(report.results[1].status, "applied");
+    assert!(system.entries.contains(&old));
+    assert_eq!(system.entries.len(), 3);
+    assert!(
+        system
+            .entries
+            .iter()
+            .any(|e| e.name == "example" && e.source == Source::Run)
+    );
+    system.fail_delete = None;
+    assert_eq!(
+        apply(&mut system, &manifest(vec![entry("example")]))
+            .unwrap()
+            .status,
+        "success"
+    );
+    assert_eq!(system.entries.len(), 2);
+}
+
+#[test]
+fn elevated_run_refuses_before_launch_and_propagates_token_and_launch_failures() {
+    let mut wanted = entry("example");
+    wanted.elevated = true;
+    wanted.arguments = "--test".into();
+    let mut system = Memory {
+        admin: true,
+        ..Default::default()
+    };
+    apply(&mut system, &manifest(vec![wanted])).unwrap();
+    system.admin = false;
+    let result = run(&system, "example").unwrap();
+    assert_eq!(result["status"], "elevation_required");
+    assert!(result.get("pid").is_none());
+    system.elevation_error = true;
+    assert_eq!(run(&system, "example").unwrap_err(), "token unavailable");
+    assert_eq!(
+        remove(&mut system, "example").unwrap_err(),
+        "token unavailable"
+    );
+    assert_eq!(system.entries.len(), 1);
+    system.elevation_error = false;
+    system.admin = true;
+    assert_eq!(run(&system, "example").unwrap()["pid"], 1234);
+    system.start_error = true;
+    assert_eq!(run(&system, "example").unwrap_err(), "launch failed");
+}
+
+#[test]
+fn validation_precedes_inventory_and_inventory_failures_prevent_all_operations() {
+    let mut system = Memory {
+        inventory_error: true,
+        ..Default::default()
+    };
+    let mut invalid = entry("example");
+    invalid.priority = Some(11);
+    assert!(
+        plan(&system, &manifest(vec![invalid]))
+            .unwrap_err()
+            .contains("priority")
+    );
+    let input = manifest(vec![entry("example")]);
+    assert_eq!(lineup::check(&system).unwrap_err(), "inventory unavailable");
+    assert_eq!(plan(&system, &input).unwrap_err(), "inventory unavailable");
+    assert_eq!(
+        apply(&mut system, &input).unwrap_err(),
+        "inventory unavailable"
+    );
+    assert_eq!(
+        remove(&mut system, "example").unwrap_err(),
+        "inventory unavailable"
+    );
+    assert_eq!(
+        run(&system, "example").unwrap_err(),
+        "inventory unavailable"
+    );
+    assert_eq!(system.writes, 0);
+    system.inventory_error = false;
+    assert_eq!(run(&system, "missing").unwrap_err(), "entry not found");
+    assert_eq!(
+        remove(&mut system, "missing").unwrap_err(),
+        "entry not found"
+    );
+}
+
+#[test]
+fn json_syntax_and_invalid_entry_shapes_report_problems() {
+    for raw in ["{", r#"{"schemaVersion":1,"entries":[null,{"name":4}]}"#] {
+        assert!(!parse_manifest(raw).unwrap_err().is_empty());
+    }
+    let mut system = Memory::default();
+    let mut disabled = entry("absent");
+    disabled.enabled = false;
+    let report = apply(&mut system, &manifest(vec![disabled])).unwrap();
+    assert_eq!(report.results[0].status, "unchanged");
+    assert_eq!(system.writes, 0);
 }
