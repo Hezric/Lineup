@@ -32,19 +32,19 @@ try {
         [IO.File]::WriteAllText((Join-Path $working 'startup.json'), $json, $utf8)
         Set-Location -LiteralPath $working
         switch ($shell) {
-            'pwsh' { & pwsh -NoProfile -File (Join-Path $PSScriptRoot 'shell-examples/powershell.ps1') }
+            'pwsh' { & pwsh -NoProfile -File (Join-Path $PSScriptRoot '../skills/lineup/references/examples/powershell.ps1') }
             'powershell' {
                 # EncodedCommand lets 5.1 read the UTF-8 source without a BOM or ANSI loss.
-                $source = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'shell-examples/powershell.ps1'))
+                $source = [IO.File]::ReadAllText((Join-Path $PSScriptRoot '../skills/lineup/references/examples/powershell.ps1'))
                 & powershell.exe -NoProfile -EncodedCommand ([Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($source)))
             }
             'cmd' {
                 # cmd's code-page switch needs CRLF batch input; repository text uses LF.
-                $batch = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'shell-examples/cmd.cmd')).Replace("`r`n", "`n").Replace("`n", "`r`n")
+                $batch = [IO.File]::ReadAllText((Join-Path $PSScriptRoot '../skills/lineup/references/examples/cmd.cmd')).Replace("`r`n", "`n").Replace("`n", "`r`n")
                 [IO.File]::WriteAllText((Join-Path $working 'examples.cmd'), $batch, $utf8)
                 & cmd.exe /d /c (Join-Path $working 'examples.cmd')
             }
-            'bash' { & $bash (Join-Path $PSScriptRoot 'shell-examples/bash.sh') }
+            'bash' { & $bash (Join-Path $PSScriptRoot '../skills/lineup/references/examples/bash.sh') }
         }
         if ($LASTEXITCODE -ne 0) { throw "$shell failed: $LASTEXITCODE" }
         foreach ($name in @('file-toml', 'file-json', 'stdin-toml', 'stdin-json', 'single', 'delay')) {

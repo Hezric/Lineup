@@ -5,7 +5,7 @@ description: Inspect, plan, and manage Windows startup entries with Lineup, incl
 
 # Lineup
 
-Use the installed `lineup` executable. Read the [usage guide](https://github.com/Hezric/Lineup/blob/main/docs/usage.md) for manifest fields, shell examples, and exit codes; `lineup --help` and `lineup <command> --help` return JSON help. `lineup schema` prints the manifest schema.
+Use the installed `lineup` executable. Get field and command details from that executable: `lineup --help` and `lineup <command> --help` return JSON help; `lineup schema` prints the manifest schema. Before writing commands, read the bundled [shell reference](references/shells.md) for the active shell: PowerShell 7, Windows PowerShell 5.1, cmd, Git Bash, or WSL. All required guidance is inside this Skill or the installed tool; network access and a repository checkout are unnecessary.
 
 ## Inspect, plan, apply
 
@@ -15,12 +15,23 @@ Use the installed `lineup` executable. Read the [usage guide](https://github.com
 
 Omitted names remain untouched. `enabled = false` removes all same-name sources in that scope. `remove` also removes every same-name source in the selected scope; use an id from `list` for ambiguous names. `run` starts a program immediately and requires authorization for that launch. Removing startup entries does not stop running programs. Lineup has no undo history.
 
-## Shell boundaries
+## Results and recovery
 
-Every invocation writes one JSON document, including failures and help. Keep raw Windows arguments intact and inspect `plan.entries[].desired.arguments` before applying.
+Every invocation writes one JSON document, including failures and help. Inspect
+warnings and per-entry results as well as the process exit code. Keep raw Windows
+arguments intact; check `plan.entries[].desired.arguments` before applying.
 
-- In PowerShell 7, single-quote Windows paths and raw arguments. Windows PowerShell 5.1 uses legacy native quoting: escape embedded double quotes with backslashes. Set `$OutputEncoding = [System.Text.UTF8Encoding]::new($false)` before piping non-ASCII manifests; use `Get-Content -Raw -Encoding UTF8 startup.toml | lineup plan --manifest -`.
-- In cmd, use `chcp 65001` for non-ASCII arguments and `type startup.toml | lineup plan --manifest -` for UTF-8 file bytes. Account for `%VARIABLE%` expansion.
-- In Git Bash, use `lineup.exe`, single-quoted Windows paths, and quoted heredocs for stdin. Prefix a command with `MSYS_NO_PATHCONV=1` when a raw application argument begins with `/`. In WSL, call the Windows executable with Windows paths.
+| Exit code | Meaning / next action |
+| --- | --- |
+| 0 | Success; still inspect inventory warnings and health findings |
+| 1 | General failure; inspect the error before retrying |
+| 2 | Invalid command, input, or manifest; correct it using help or schema |
+| 3 | Elevation required; preflight made no changes; retry with same-account elevation |
+| 4 | Partial failure; inspect each result and read back state before retrying |
 
-Use the guide's examples for the active shell rather than translating quoting by eye. The Skill carries workflow and pitfalls; the guide and CLI own command details.
+Use a Windows executable path, including when invoking through WSL. Manifests
+are UTF-8 TOML or JSON and may have a leading byte-order mark. Delay, priority,
+elevation, or a working directory selects a scheduled task; ordinary entries
+use Run values. Run commands have a 260-character limit; `delaySeconds: 0`
+selects a task for a longer command. `run` uses the caller's token and ignores
+the configured startup delay and task priority.
