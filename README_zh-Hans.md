@@ -15,10 +15,10 @@ Lineup 为脚本和编程代理打理 Windows 启动程序。用 JSON 写下期�
 
 ## 安装
 
-在 Windows 11 x64 上，通过 [scoop-zephyr bucket](https://github.com/Hezric/scoop-zephyr) 安装：
+在 Windows 11 x64 上，通过 [ScoopZephyr bucket](https://github.com/Hezric/ScoopZephyr) 安装：
 
 ```powershell
-scoop bucket add zephyr https://github.com/Hezric/scoop-zephyr
+scoop bucket add zephyr https://github.com/Hezric/ScoopZephyr
 scoop install zephyr/lineup
 ```
 
