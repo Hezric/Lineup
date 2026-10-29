@@ -151,7 +151,7 @@ passed for all four kinds; new ACL behavior requires the elevated suite or CI
 run, rather than being inferred from those earlier results.
 
 The [companion Skill](../../skills/lineup/SKILL.md) provides an agent workflow
-and shell pitfalls, with command details owned by the usage guide and CLI help.
+and bundled shell references/examples that work without network access or a repository checkout. Field-level details come from installed CLI help and schema output.
 It is discoverable by the skills CLI and included in release archives. The
 README's installation prompt respects the user's existing Skill management.
 
