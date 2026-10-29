@@ -1,5 +1,5 @@
 ---
-name: lineup
+name: 'lineup'
 description: Inspect, plan, and manage Windows startup entries with Lineup, including manifests, delayed tasks, and elevation. Use for Windows logon programs, not services or process supervision.
 ---
 
