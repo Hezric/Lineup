@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.3.1]
+
+### Fixes
+
+- keep companion skills self-contained (#14)
+
 ## [0.3.0]
 
 ### Features
