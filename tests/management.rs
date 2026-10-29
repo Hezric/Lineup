@@ -579,3 +579,56 @@ fn utf8_bom_is_an_optional_encoding_marker_not_manifest_content() {
     }
     assert!(parse_manifest("\u{feff}\u{feff}{}").is_err());
 }
+
+#[test]
+fn working_directory_selects_a_task_and_compares_windows_paths_without_case() {
+    let mut system = Memory::default();
+    let mut wanted = entry("example");
+    wanted.working_directory = Some(r"C:\Work".into());
+    let input = manifest(vec![wanted.clone()]);
+    let preview = plan(&system, &input).unwrap();
+    assert_eq!(preview.entries[0].source, Source::Task);
+    assert_eq!(
+        preview.entries[0]
+            .desired
+            .as_ref()
+            .unwrap()
+            .working_directory
+            .as_deref(),
+        Some(r"C:\Work")
+    );
+    apply(&mut system, &input).unwrap();
+    wanted.working_directory = Some("c:/work".into());
+    assert_eq!(
+        plan(&system, &manifest(vec![wanted])).unwrap().entries[0].action,
+        Action::Unchanged
+    );
+}
+
+#[test]
+fn name_selection_retains_unrelated_warnings_but_cannot_ignore_a_hidden_other_scope() {
+    let mut system = Memory::default();
+    let mut wanted = entry("éxample");
+    wanted.arguments = "--test".into();
+    apply(&mut system, &manifest(vec![wanted])).unwrap();
+    let id = system.entries[0].id.clone();
+    system.warnings.push(lineup::InventoryWarning {
+        scope: Some(Scope::Machine),
+        name: Some("other".into()),
+        message: "unreadable machine task".into(),
+    });
+    assert_eq!(
+        run(&system, "ÉXAMPLE").unwrap()["warnings"][0]["name"],
+        "other"
+    );
+    system.warnings[0].name = Some("ÉXAMPLE".into());
+    let writes = system.writes;
+    assert!(run(&system, "éxample").unwrap_err().contains("incomplete"));
+    assert!(
+        remove(&mut system, "éxample")
+            .unwrap_err()
+            .contains("incomplete")
+    );
+    assert_eq!(system.writes, writes);
+    assert_eq!(run(&system, &id).unwrap()["pid"], 1234);
+}
