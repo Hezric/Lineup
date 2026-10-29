@@ -5,6 +5,8 @@ Lineup manages the programs Windows starts at logon. It is built for coding agen
 ## Installation
 
 For Scoop and release downloads, see the [installation instructions](../README.md#install).
+For a coding agent, use the [installation prompt](../README.md#use-with-an-agent)
+and the companion [Lineup Skill](../skills/lineup/SKILL.md).
 To build from source on Windows 11 x64, install the MSVC build tools and Rust
 through rustup, then use the repository's pinned stable toolchain:
 
@@ -89,8 +91,9 @@ The same defaults and validation apply to all three input forms.
 
 ### Shells and encoding
 
-Lineup reads manifests as UTF-8. The examples below are read-only; inspect the
-returned `plan.entries[].desired.arguments` to check the raw Windows argument
+Lineup reads manifests as UTF-8, with or without a leading byte-order mark.
+The examples below are read-only; inspect the returned
+`plan.entries[].desired.arguments` to check the raw Windows argument
 string. Use UTF-8 when saving manifest files.
 
 **PowerShell 7:**
@@ -258,6 +261,7 @@ fail; inspect the result as well as the exit code.
 cargo fmt --check
 cargo clippy --all-targets -j 2 -- -D warnings
 cargo test -j 2
+./tests/shell-examples.ps1
 $env:LINEUP_REAL_TESTS = '1'
 cargo test -j 2 --test real_windows -- --nocapture
 Remove-Item Env:LINEUP_REAL_TESTS
@@ -266,6 +270,11 @@ Remove-Item Env:LINEUP_REAL_TESTS
 The core library separates operations from native Windows access through a
 backend interface. [Current behavior](features/startup-management.md) describes
 the delivered contract.
+
+The shell check requires the release build and Git Bash. It runs only read-only
+examples in PowerShell 7, Windows PowerShell 5.1, cmd, and Git Bash, asserting
+JSON fields, stdin manifests, Unicode, and raw argument preservation. Its files
+live in a unique system-temp directory and are removed on success or failure.
 
 The opt-in suite creates only unique current-user `LineupTest-` entries and
 cleans them up even when assertions fail. It covers Run values, Startup shortcut

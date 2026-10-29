@@ -23,19 +23,14 @@ fn stdin_toml_uses_manifest_validation() {
     assert_eq!(value["problems"][0]["path"], "/entries/0/name");
 }
 
-fn input(args: &[&str], raw: &str) -> (i32, Value) {
+fn input(args: &[&str], raw: impl AsRef<[u8]>) -> (i32, Value) {
     let mut child = Command::new(env!("CARGO_BIN_EXE_lineup"))
         .args(args)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .spawn()
         .unwrap();
-    child
-        .stdin
-        .take()
-        .unwrap()
-        .write_all(raw.as_bytes())
-        .unwrap();
+    child.stdin.take().unwrap().write_all(raw.as_ref()).unwrap();
     let out = child.wait_with_output().unwrap();
     (
         out.status.code().unwrap(),
@@ -100,6 +95,7 @@ fn single_entry_options_share_manifest_field_validation() {
         ("--scope", "invalid", "/entries/0/scope"),
         ("--elevated", "invalid", "/entries/0/elevated"),
         ("--delay", "-1", "/entries/0/delaySeconds"),
+        ("--delay", "later", "/entries/0/delaySeconds"),
         ("--priority", "11", "/entries/0/priority"),
         ("--enabled", "invalid", "/entries/0/enabled"),
     ] {
@@ -164,4 +160,82 @@ fn published_schema_cannot_drift_from_rust_types() {
         lineup::management::schema(),
         "regenerate with lineup schema"
     );
+}
+
+#[test]
+fn aliases_schema_and_command_arity_keep_the_json_contract() {
+    for args in [vec!["-h"], vec!["list", "-h"], vec!["-V"]] {
+        let (code, value) = input(&args, "");
+        assert_eq!(code, 0, "{args:?}: {value}");
+        assert_eq!(value["ok"], true);
+        assert!(value.get("help").is_some() || value.get("version").is_some());
+    }
+    let (code, value) = input(&["schema"], "");
+    assert_eq!(code, 0);
+    assert_eq!(value, lineup::management::schema());
+    for args in [
+        vec!["plan"],
+        vec!["apply"],
+        vec!["remove"],
+        vec!["run", "a", "b"],
+        vec!["schema", "extra"],
+    ] {
+        let (code, value) = input(&args, "");
+        assert_eq!(code, 2, "{args:?}: {value}");
+        assert_eq!(value["ok"], false);
+        assert!(value["error"].as_str().unwrap().contains("invalid"));
+    }
+}
+
+#[test]
+fn single_entry_parser_rejects_duplicate_missing_and_unknown_options() {
+    for (args, error) in [
+        (
+            vec!["plan", "--name", "x", "--name", "y"],
+            "duplicate option",
+        ),
+        (vec!["plan", "--name"], "missing option value"),
+        (vec!["plan", "--unknown", "x"], "invalid command or options"),
+    ] {
+        let (code, value) = input(&args, "");
+        assert_eq!(code, 2);
+        assert_eq!(value["error"], error);
+    }
+    // Invalid names stop before native dispatch while exercising boolean parsing.
+    for flags in [
+        vec!["--elevated", "--enabled"],
+        vec!["--elevated", "false", "--enabled", "true"],
+    ] {
+        let mut args = vec!["plan", "--name", "bad/name", "--path", "C:\\app.exe"];
+        args.extend(flags);
+        let (code, value) = input(&args, "");
+        assert_eq!(code, 2);
+        let problems = value["problems"].as_array().unwrap();
+        assert_eq!(problems.len(), 1);
+        assert_eq!(problems[0]["path"], "/entries/0/name");
+    }
+}
+
+#[test]
+fn malformed_json_and_non_utf8_stdin_are_json_failures() {
+    let (code, value) = input(&["plan", "--manifest", "-"], "{");
+    assert_eq!(code, 2);
+    assert_eq!(value["ok"], false);
+    assert_eq!(value["problems"][0]["path"], "");
+    let (code, value) = input(&["plan", "--manifest", "-"], [0xff, 0xfe]);
+    assert_eq!(code, 2);
+    assert_eq!(value["ok"], false);
+    assert!(value["error"].as_str().unwrap().contains("UTF-8"));
+}
+
+#[test]
+fn utf8_bom_preserves_manifest_format_detection_and_field_validation() {
+    for raw in [
+        "\u{feff} {\"schemaVersion\":1,\"entries\":[{\"name\":\"bad/name\",\"path\":\"C:\\\\app.exe\"}]}",
+        "\u{feff}schemaVersion = 1\n[[entries]]\nname = 'bad/name'\npath = 'C:\\app.exe'\n",
+    ] {
+        let (code, value) = input(&["plan", "--manifest", "-"], raw);
+        assert_eq!(code, 2);
+        assert_eq!(value["problems"][0]["path"], "/entries/0/name", "{value}");
+    }
 }

@@ -55,6 +55,7 @@ pub fn schema() -> serde_json::Value {
     serde_json::to_value(schemars::schema_for!(Manifest)).expect("schema serializes")
 }
 pub fn parse_manifest(raw: &str) -> Result<Manifest, Vec<Problem>> {
+    let raw = raw.strip_prefix('\u{feff}').unwrap_or(raw);
     let value: serde_json::Value = if raw.trim_start().starts_with('{') {
         serde_json::from_str(raw).map_err(|e| e.to_string())
     } else {
