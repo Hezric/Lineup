@@ -90,6 +90,39 @@ fn manifest_formats_and_argument_validation() {
 }
 
 #[test]
+fn single_entry_options_share_manifest_field_validation() {
+    for (option, value, path) in [
+        (
+            "--working-directory",
+            "relative",
+            "/entries/0/workingDirectory",
+        ),
+        ("--scope", "invalid", "/entries/0/scope"),
+        ("--elevated", "invalid", "/entries/0/elevated"),
+        ("--delay", "-1", "/entries/0/delaySeconds"),
+        ("--priority", "11", "/entries/0/priority"),
+        ("--enabled", "invalid", "/entries/0/enabled"),
+    ] {
+        let (code, output) = input(
+            &[
+                "apply",
+                "--name",
+                "example",
+                "--path",
+                "C:\\app.exe",
+                "--arguments",
+                "/q",
+                option,
+                value,
+            ],
+            "",
+        );
+        assert_eq!(code, 2, "{option}: {output}");
+        assert_eq!(output["problems"][0]["path"], path);
+    }
+}
+
+#[test]
 fn every_help_and_input_failure_is_one_json_document() {
     for args in [
         vec![],
