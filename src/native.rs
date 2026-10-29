@@ -1398,6 +1398,126 @@ mod tests {
     }
 
     #[test]
+    fn task_inventory_expands_environment_variables_in_all_command_fields() {
+        let system_root = std::env::var("SystemRoot").unwrap();
+        let fixture = TaskFixture::new(
+            r"%SystemRoot%\System32\notepad.exe",
+            Some(Path::new("%SystemRoot%")),
+        );
+        unsafe {
+            let action: IExecAction = fixture
+                .definition
+                .Actions()
+                .unwrap()
+                .get_Item(1)
+                .unwrap()
+                .cast()
+                .unwrap();
+            action.SetArguments(&BSTR::from("%SystemRoot%")).unwrap();
+        }
+        let inventory = fixture.inventory().unwrap();
+        let entry = &inventory.entries[0];
+        assert!(
+            entry
+                .path
+                .eq_ignore_ascii_case(&format!(r"{system_root}\System32\notepad.exe"))
+        );
+        assert_eq!(entry.arguments, system_root);
+        assert_eq!(
+            entry.working_directory.as_deref(),
+            Some(system_root.as_str())
+        );
+    }
+
+    #[test]
+    fn task_inventory_handles_boot_triggers_multiple_actions_and_unsupported_actions() {
+        let fixture = TaskFixture::new(r"C:\LineupTest-missing\one.exe", None);
+        unsafe {
+            let triggers = fixture.definition.Triggers().unwrap();
+            triggers.Clear().unwrap();
+            let boot: IBootTrigger = triggers.Create(TASK_TRIGGER_BOOT).unwrap().cast().unwrap();
+            boot.SetDelay(&BSTR::from("PT12S")).unwrap();
+            let actions = fixture.definition.Actions().unwrap();
+            let second: IExecAction = actions.Create(TASK_ACTION_EXEC).unwrap().cast().unwrap();
+            second
+                .SetPath(&BSTR::from(r"C:\LineupTest-missing\two.exe"))
+                .unwrap();
+            let inventory = fixture.inventory().unwrap();
+            assert_eq!(inventory.entries.len(), 2);
+            assert!(inventory.entries[0].id.ends_with("#1"));
+            assert!(inventory.entries[1].id.ends_with("#2"));
+            assert!(
+                inventory
+                    .entries
+                    .iter()
+                    .all(|entry| entry.boot && entry.delay_seconds == Some(12))
+            );
+            actions.Clear().unwrap();
+            actions.Create(TASK_ACTION_COM_HANDLER).unwrap();
+            let inventory = fixture.inventory().unwrap();
+            assert!(inventory.entries.is_empty());
+            assert_eq!(inventory.warnings.len(), 1);
+            assert_eq!(inventory.warnings[0].scope, Some(Scope::User));
+            assert!(
+                inventory.warnings[0]
+                    .message
+                    .contains("no executable action")
+            );
+        }
+    }
+
+    #[test]
+    fn task_inventory_excludes_foreign_principals_and_foreign_logon_triggers() {
+        let foreign = BSTR::from("S-1-5-21-0-0-0-1001");
+        let fixture = TaskFixture::new(r"C:\LineupTest-missing\tool.exe", None);
+        unsafe {
+            let trigger: ILogonTrigger = fixture
+                .definition
+                .Triggers()
+                .unwrap()
+                .get_Item(1)
+                .unwrap()
+                .cast()
+                .unwrap();
+            trigger.SetUserId(&foreign).unwrap();
+            assert!(fixture.inventory().unwrap().entries.is_empty());
+            trigger.SetUserId(&BSTR::from(&fixture.native.sid)).unwrap();
+            fixture
+                .definition
+                .Principal()
+                .unwrap()
+                .SetUserId(&foreign)
+                .unwrap();
+            assert!(fixture.inventory().unwrap().entries.is_empty());
+        }
+    }
+
+    #[test]
+    fn task_folder_failures_preserve_the_scope_used_by_mutation_preflight() {
+        for (path, scope) in [
+            (r"\Lineup\Machine", Some(Scope::Machine)),
+            (r"\LINEUP\MACHINE\child", Some(Scope::Machine)),
+            (r"\Lineup\User-S-1-5-21-1", Some(Scope::User)),
+            (r"\Lineup\MachineOther", None),
+            (r"\Other", None),
+        ] {
+            let mut inventory = Inventory::default();
+            task_read::<()>(
+                Err(windows::core::Error::from_hresult(windows::core::HRESULT(
+                    0x80070005u32 as i32,
+                ))),
+                path,
+                task_folder_scope(path),
+                None,
+                &mut inventory,
+            );
+            assert_eq!(inventory.warnings.len(), 1);
+            assert_eq!(inventory.warnings[0].scope, scope);
+            assert_eq!(inventory.warnings[0].name, None);
+        }
+    }
+
+    #[test]
     fn native_task_definitions_preserve_scope_privilege_and_logon_settings_without_registration() {
         let backend = WindowsBackend::new().unwrap();
         for (scope, elevated, expected_group) in [

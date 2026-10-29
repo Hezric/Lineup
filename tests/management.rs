@@ -632,3 +632,22 @@ fn name_selection_retains_unrelated_warnings_but_cannot_ignore_a_hidden_other_sc
     assert_eq!(system.writes, writes);
     assert_eq!(run(&system, &id).unwrap()["pid"], 1234);
 }
+
+#[test]
+fn a_same_name_boot_task_is_replaced_with_the_desired_logon_task() {
+    let mut system = Memory::default();
+    let mut wanted = entry("example");
+    wanted.delay_seconds = Some(0);
+    let input = manifest(vec![wanted]);
+    apply(&mut system, &input).unwrap();
+    system.entries[0].boot = true;
+    let preview = plan(&system, &input).unwrap();
+    assert_eq!(preview.entries[0].action, Action::Update);
+    assert!(!preview.entries[0].desired.as_ref().unwrap().boot);
+    apply(&mut system, &input).unwrap();
+    assert!(!system.entries[0].boot);
+    assert_eq!(
+        plan(&system, &input).unwrap().entries[0].action,
+        Action::Unchanged
+    );
+}
