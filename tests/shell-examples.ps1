@@ -49,6 +49,7 @@ try {
         if ($LASTEXITCODE -ne 0) { throw "$shell failed: $LASTEXITCODE" }
         foreach ($name in @('file-toml', 'file-json', 'stdin-toml', 'stdin-json', 'single', 'delay')) {
             $result = Read-Result $name
+            if (!$result.ok) { throw "$shell/${name}: $($result | ConvertTo-Json -Depth 12 -Compress)" }
             $desired = $result.plan.entries[0].desired
             if (!$result.ok -or $result.plan.entries.Count -ne 1 -or $desired.scope -ne 'user' -or
                 $desired.path -ine (Join-Path $env:SystemRoot 'System32/notepad.exe')) { throw "$shell/${name}: invalid plan" }
