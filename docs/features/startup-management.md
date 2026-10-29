@@ -47,8 +47,10 @@ validation reports every detected field problem and rejects duplicate names
 within a scope before changes.
 `plan` and `apply` accept TOML or JSON manifests from a file or stdin (`--manifest -`),
 or one entry via CLI options. JSON is detected by its first non-whitespace `{`;
-all other input is TOML. Syntax errors in TOML include line and column, and field
-errors use JSON Pointer paths. All input forms share defaults and validation.
+all other input is TOML. One leading UTF-8 byte-order mark is accepted before
+format detection, including stdin from Windows PowerShell. Syntax errors in TOML
+include line and column, and field errors use JSON Pointer paths. All input
+forms share defaults and validation.
 For example:
 
 ```toml

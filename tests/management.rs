@@ -568,3 +568,14 @@ fn json_syntax_and_invalid_entry_shapes_report_problems() {
     assert_eq!(report.results[0].status, "unchanged");
     assert_eq!(system.writes, 0);
 }
+
+#[test]
+fn utf8_bom_is_an_optional_encoding_marker_not_manifest_content() {
+    for raw in [
+        "\u{feff} {\"schemaVersion\":1,\"entries\":[]}",
+        "\u{feff}schemaVersion = 1\nentries = []\n",
+    ] {
+        assert!(parse_manifest(raw).unwrap().entries.is_empty());
+    }
+    assert!(parse_manifest("\u{feff}\u{feff}{}").is_err());
+}

@@ -23,19 +23,14 @@ fn stdin_toml_uses_manifest_validation() {
     assert_eq!(value["problems"][0]["path"], "/entries/0/name");
 }
 
-fn input(args: &[&str], raw: &str) -> (i32, Value) {
+fn input(args: &[&str], raw: impl AsRef<[u8]>) -> (i32, Value) {
     let mut child = Command::new(env!("CARGO_BIN_EXE_lineup"))
         .args(args)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .spawn()
         .unwrap();
-    child
-        .stdin
-        .take()
-        .unwrap()
-        .write_all(raw.as_bytes())
-        .unwrap();
+    child.stdin.take().unwrap().write_all(raw.as_ref()).unwrap();
     let out = child.wait_with_output().unwrap();
     (
         out.status.code().unwrap(),
@@ -100,6 +95,7 @@ fn single_entry_options_share_manifest_field_validation() {
         ("--scope", "invalid", "/entries/0/scope"),
         ("--elevated", "invalid", "/entries/0/elevated"),
         ("--delay", "-1", "/entries/0/delaySeconds"),
+        ("--delay", "later", "/entries/0/delaySeconds"),
         ("--priority", "11", "/entries/0/priority"),
         ("--enabled", "invalid", "/entries/0/enabled"),
     ] {
@@ -217,5 +213,29 @@ fn single_entry_parser_rejects_duplicate_missing_and_unknown_options() {
         let problems = value["problems"].as_array().unwrap();
         assert_eq!(problems.len(), 1);
         assert_eq!(problems[0]["path"], "/entries/0/name");
+    }
+}
+
+#[test]
+fn malformed_json_and_non_utf8_stdin_are_json_failures() {
+    let (code, value) = input(&["plan", "--manifest", "-"], "{");
+    assert_eq!(code, 2);
+    assert_eq!(value["ok"], false);
+    assert_eq!(value["problems"][0]["path"], "");
+    let (code, value) = input(&["plan", "--manifest", "-"], [0xff, 0xfe]);
+    assert_eq!(code, 2);
+    assert_eq!(value["ok"], false);
+    assert!(value["error"].as_str().unwrap().contains("UTF-8"));
+}
+
+#[test]
+fn utf8_bom_preserves_manifest_format_detection_and_field_validation() {
+    for raw in [
+        "\u{feff} {\"schemaVersion\":1,\"entries\":[{\"name\":\"bad/name\",\"path\":\"C:\\\\app.exe\"}]}",
+        "\u{feff}schemaVersion = 1\n[[entries]]\nname = 'bad/name'\npath = 'C:\\app.exe'\n",
+    ] {
+        let (code, value) = input(&["plan", "--manifest", "-"], raw);
+        assert_eq!(code, 2);
+        assert_eq!(value["problems"][0]["path"], "/entries/0/name", "{value}");
     }
 }

@@ -91,8 +91,9 @@ The same defaults and validation apply to all three input forms.
 
 ### Shells and encoding
 
-Lineup reads manifests as UTF-8. The examples below are read-only; inspect the
-returned `plan.entries[].desired.arguments` to check the raw Windows argument
+Lineup reads manifests as UTF-8, with or without a leading byte-order mark.
+The examples below are read-only; inspect the returned
+`plan.entries[].desired.arguments` to check the raw Windows argument
 string. Use UTF-8 when saving manifest files.
 
 **PowerShell 7:**
