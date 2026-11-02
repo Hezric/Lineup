@@ -22,7 +22,7 @@ scoop bucket add zephyr https://github.com/Hezric/ScoopZephyr
 scoop install zephyr/lineup
 ```
 
-也可从 [GitHub Releases](https://github.com/Hezric/Lineup/releases) 下载 Windows x64 压缩包，解压后将 `lineup.exe` 放入 PATH。若从源码构建，请安装 rustup 管理的 Rust 和 MSVC 构建工具，运行 `cargo build --release --locked`；可执行文件位于 `target/release/`。Lineup 不会将自身设为启动项，也不会常驻运行。
+也可从 [GitHub Releases](https://github.com/Hezric/Lineup/releases) 下载 Windows x64 压缩包，解压后将 `lineup.exe` 放入 PATH。若从源码构建，请安装 rustup 管理的 Rust 和 MSVC 构建工具，运行 `pwsh -NoProfile -File scripts/with-build-cache.ps1 cargo build --release --locked`；可执行文件位于 `target/release/`。[项目构建缓存](docs/features/build-cache.md) 会在复用前自动滚动清理。Lineup 不会将自身设为启动项，也不会常驻运行。
 
 ## 交给智能体
 
