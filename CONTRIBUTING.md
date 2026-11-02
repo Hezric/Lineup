@@ -6,7 +6,7 @@ Write public contributions in English. Keep `README_zh-Hans.md` synchronized whe
 
 1. Create a branch named `<type>/<short-desc>`, such as `fix/handle-empty-input`.
 2. Sign every commit with a GitHub-registered signing key. Use scoped Conventional Commits: `fix(parser): handle empty input`. Lowercase where meaning permits; use backticks for technical tokens. PR titles follow the same format. Supported types are feat, fix, perf, refactor, docs, style, test, build, ci, chore, and revert.
-3. Run `cargo test -j 2 --locked` and `cargo build --release --locked`. Open one PR per coherent stage and explain its behavior and verification.
+3. Run `pwsh -NoProfile -File scripts/with-build-cache.ps1 cargo test -j 2 --locked` and `pwsh -NoProfile -File scripts/with-build-cache.ps1 cargo build --release --locked`. Open one PR per coherent stage and explain its behavior and verification.
 4. Rebase stale branches locally onto main, re-sign rewritten commits, and use `--force-with-lease` only on the development branch. Wait for `test` and `policy` to pass again. Maintainers squash-merge through GitHub using the PR title and body; GitHub signs the resulting commit and deletes the merged branch.
 
 Main requires tested signed commits, strict up-to-date checks, linear history, and forbids force pushes or deletion. Direct pushes require the same signed SHA to have passed CI on another branch against current main. Bots use that flow or open PRs. Dependabot's native branch names are exempt from the branch check; its scoped messages, signatures, and tests remain required. Weekly grouped updates auto squash-merge after green CI.
@@ -14,3 +14,5 @@ Main requires tested signed commits, strict up-to-date checks, linear history, a
 Maintainers release only on explicit user authorization: git-cliff prepares the next SemVer and `CHANGELOG.md`, a `chore(release): vX.Y.Z` PR updates the version, and its merged commit receives a signed annotated tag. The tag workflow builds artifacts plus SHA256 and publishes that changelog section. `v*` tags cannot be updated or deleted. The single `Release due` issue reminds immediately for security or breaking changes, at five unreleased user-visible changes, or at one after 30 days; it does not trigger a release.
 
 Report vulnerabilities privately using the repository Security tab. Contributions use the repository's MIT license.
+
+The [project build cache](docs/features/build-cache.md) keeps intermediate output in system temp and prunes it before reuse. Verify it with `pwsh -NoProfile -File scripts/test-build-cache.ps1`.

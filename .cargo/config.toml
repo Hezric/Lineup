@@ -1,0 +1,3 @@
+[profile.dev]
+debug = "line-tables-only"
+incremental = false

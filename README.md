@@ -22,7 +22,7 @@ scoop bucket add zephyr https://github.com/Hezric/ScoopZephyr
 scoop install zephyr/lineup
 ```
 
-Alternatively, download the Windows x64 zip from [GitHub Releases](https://github.com/Hezric/Lineup/releases), extract it, and put `lineup.exe` on your PATH. To build from source, install Rust with rustup and the MSVC build tools, then run `cargo build --release --locked`; the executable is in `target/release/`. Lineup does not register itself for startup or stay resident.
+Alternatively, download the Windows x64 zip from [GitHub Releases](https://github.com/Hezric/Lineup/releases), extract it, and put `lineup.exe` on your PATH. To build from source, install Rust with rustup and the MSVC build tools, then run `pwsh -NoProfile -File scripts/with-build-cache.ps1 cargo build --release --locked`; the executable is in `target/release/`. The [project build cache](docs/features/build-cache.md) is pruned automatically before reuse. Lineup does not register itself for startup or stay resident.
 
 ## Use with an agent
 

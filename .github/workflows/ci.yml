@@ -25,6 +25,8 @@ jobs:
           rustup show active-toolchain
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           rustup component add rustfmt clippy
+      - name: Build cache contract
+        run: pwsh -NoProfile -File scripts/test-build-cache.ps1
       - name: Format
         run: |
           #requires -Version 7.0
