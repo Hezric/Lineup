@@ -33,8 +33,31 @@ jobs:
           gh api "repos/$GITHUB_REPOSITORY/git/tags/$(git rev-parse "$RELEASE_TAG")" --jq '.verification.verified' | grep -qx true
           test "$(git rev-parse "$RELEASE_TAG^{}")" = "$(git rev-parse HEAD)"
           git merge-base --is-ancestor HEAD origin/main
-          subject=$(git log -1 --format=%s)
-          [[ "$subject" == "chore(release): $RELEASE_TAG" || "$subject" == "chore(release): $RELEASE_TAG (#"*")" ]]
+      - uses: MinoruSekine/setup-scoop@v5.0.1
+      - name: Install version parser
+        shell: pwsh
+        run: scoop install yq
+      - name: Check declared version fields
+        shell: pwsh
+        env:
+          VERSION_FIELDS: '{"Cargo.toml":[".package.version"],"Cargo.lock":[".package[] | select(.name == \"lineup\") | .version"]}'
+        run: |
+          #requires -Version 7.0
+          $ErrorActionPreference = 'Stop'
+          $fields = $env:VERSION_FIELDS | ConvertFrom-Json -AsHashtable
+          if ($fields -isnot [Collections.IDictionary] -or $fields.Count -eq 0) { throw 'Declare every package version file in a JSON object.' }
+          foreach ($entry in $fields.GetEnumerator()) {
+            $file = $entry.Key
+            $format = if ([IO.Path]::GetExtension($file) -in '.toml', '.lock' -and $file -notlike '*package-lock.json') { 'toml' } else { 'json' }
+            if ($entry.Value -isnot [array] -or $entry.Value.Count -eq 0) { throw "Declare a nonempty version field array for $file" }
+            foreach ($field in $entry.Value) {
+              if ($field -isnot [string] -or !$field) { throw "Invalid version expression for $file" }
+              $values = @(yq -p $format -o json -r $field $file)
+              if ($LASTEXITCODE -or $values.Count -ne 1 -or $values[0] -cne $env:RELEASE_TAG.Substring(1)) {
+                throw "Tag and declared version differ: $file $field"
+              }
+            }
+          }
       - name: Install pinned toolchain
         run: rustup show active-toolchain
       - name: Test
